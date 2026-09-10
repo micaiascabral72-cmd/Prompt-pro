@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 from datetime import datetime
 
 # ==========================================================
@@ -134,8 +134,7 @@ if gerar:
         st.warning("⚠️ Descreva a ideia com um pouco mais de detalhe.")
     else:
         try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(modelo_escolhido)
+            client = genai.Client(api_key=api_key)
 
             nivel_instrucao = (
                 "Detecte pelo contexto da ideia do usuário qual é o nível técnico mais "
@@ -202,7 +201,10 @@ Retorne APENAS o prompt gerado em formato Markdown. Não inclua conversas ou sau
 """
 
             with st.spinner("Forjando o prompt perfeito... ⏳"):
-                response = model.generate_content(system_instruction)
+                response = client.models.generate_content(
+                    model=modelo_escolhido,
+                    contents=system_instruction
+                )
 
             if not response.text or not response.text.strip():
                 st.error("🚨 O modelo não retornou nenhum conteúdo. Tente reformular sua ideia.")
