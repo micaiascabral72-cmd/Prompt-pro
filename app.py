@@ -32,7 +32,16 @@ if "ultimo_prompt" not in st.session_state:
 # ==========================================================
 st.sidebar.header("⚙️ Configuração")
 
-api_key = st.sidebar.text_input("Sua API Key do Google Gemini:", type="password")
+# A chave é lida de st.secrets (arquivo .streamlit/secrets.toml, que NÃO vai
+# para o GitHub) quando existir. Se não existir, o usuário pode colar a
+# própria chave no campo abaixo — assim o app funciona tanto para você
+# (com a chave já configurada) quanto para quem for usar o app sem ter uma.
+chave_padrao = st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") else ""
+api_key = st.sidebar.text_input(
+    "Sua API Key do Google Gemini:",
+    value=chave_padrao,
+    type="password"
+)
 st.sidebar.markdown("[Pegue sua API Key gratuita aqui](https://aistudio.google.com/app/apikey)")
 st.sidebar.divider()
 
