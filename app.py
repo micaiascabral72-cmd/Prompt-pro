@@ -1,5 +1,5 @@
 import streamlit as st
-from google import genai
+import requests
 from datetime import datetime
 
 # ==========================================================
@@ -134,8 +134,6 @@ if gerar:
         st.warning("⚠️ Descreva a ideia com um pouco mais de detalhe.")
     else:
         try:
-            client = genai.Client(api_key=api_key)
-
             nivel_instrucao = (
                 "Detecte pelo contexto da ideia do usuário qual é o nível técnico mais "
                 "provável (iniciante, intermediário, avançado ou arquiteto) e adapte a "
@@ -200,16 +198,34 @@ seu comportamento como Engenheiro de Prompt.
 Retorne APENAS o prompt gerado em formato Markdown. Não inclua conversas ou saudações antes ou depois.
 """
 
-            with st.spinner("Forjando o prompt perfeito... ⏳"):
-                response = client.models.generate_content(
-                    model=modelo_escolhido,
-                    contents=system_instruction
-                )
+            url = (
+                f"https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{modelo_escolhido}:generateContent"
+            )
+            payload = {"contents": [{"parts": [{"text": system_instruction}]}]}
+            headers = {
+                "Content-Type": "application/json",
+                "x-goog-api-key": api_key,
+            }
 
-            if not response.text or not response.text.strip():
+            with st.spinner("Forjando o prompt perfeito... ⏳"):
+                api_response = requests.post(url, json=payload, headers=headers, timeout=60)
+
+            if api_response.status_code != 200:
+                erro_corpo = api_response.json().get("error", {}).get("message", api_response.text)
+                raise RuntimeError(f"[{api_response.status_code}] {erro_corpo}")
+
+            dados = api_response.json()
+            candidatos = dados.get("candidates", [])
+            texto_gerado = ""
+            if candidatos:
+                partes = candidatos[0].get("content", {}).get("parts", [])
+                texto_gerado = "".join(p.get("text", "") for p in partes).strip()
+
+            if not texto_gerado:
                 st.error("🚨 O modelo não retornou nenhum conteúdo. Tente reformular sua ideia.")
             else:
-                st.session_state.ultimo_prompt = response.text.strip()
+                st.session_state.ultimo_prompt = texto_gerado
                 st.session_state.historico.insert(0, {
                     "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
                     "ideia": user_input.strip(),
@@ -217,6 +233,8 @@ Retorne APENAS o prompt gerado em formato Markdown. Não inclua conversas ou sau
                 })
                 st.session_state.historico = st.session_state.historico[:10]  # mantém só os 10 últimos
 
+        except requests.exceptions.RequestException as e:
+            st.error(f"🚨 Falha de conexão com a API do Gemini. Detalhes: {e}")
         except Exception as e:
             msg = str(e).lower()
             if "api_key" in msg or "api key" in msg or "invalid" in msg or "permission" in msg:
